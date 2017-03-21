@@ -221,6 +221,7 @@ $ oc set env dc/router HAPROXY_ROUTER_SYSLOG_ADDRESS=127.0.0.1 HAPROXY_ROUTER_LO
 |`*ROUTER_DENIED_DOMAINS*` | | A comma-separated list of domains that the host name in a route can not be part of. No subdomain in the domain can be used either. Overrides option `ROUTER_ALLOWED_DOMAINS`.
 |`*ROUTER_ENABLE_COMPRESSION*`| false | If `true`, compress responses when possible.
 |`*ROUTER_LOG_LEVEL*` | warning | The log level to send to the syslog server.
+|`*ROUTER_MAX_CONNECTIONS*`| 2000 | Maximum number of concurrent connections.
 |`*ROUTER_OVERRIDE_HOSTNAME*`|  | If set, override the spec.host value for a route with the template in ROUTER_SUBDOMAIN.
 |`*ROUTER_SERVICE_HTTPS_PORT*` | 443 | Port to listen for HTTPS requests.
 |`*ROUTER_SERVICE_HTTP_PORT*` | 80 | Port to listen for HTTP requests.
@@ -229,8 +230,9 @@ $ oc set env dc/router HAPROXY_ROUTER_SYSLOG_ADDRESS=127.0.0.1 HAPROXY_ROUTER_LO
 |`*ROUTER_SERVICE_NAMESPACE*` |  | The namespace the router identifies itself in the in route status. Required if `ROUTER_SERVICE_NAME` is used.
 |`*ROUTER_SERVICE_NO_SNI_PORT*` | 10443 | Internal port for some front-end to back-end communication (see note below).
 |`*ROUTER_SERVICE_SNI_PORT*` | 10444 | Internal port for some front-end to back-end communication (see note below).
+|`*ROUTER_SLOWLORIS_HTTP_KEEPALIVE*` | 300s | Set the maximum time to wait for a new HTTP request to appear. If this is set too low, it can confuse browsers and applications not expecting a small `keepalive` value.
 |`*ROUTER_SLOWLORIS_TIMEOUT*` | 10s | Length of time the transmission of an HTTP request can take.
-|`*ROUTER_SUBDOMAIN*`|  | The template that should be used to generate the hostname for a route without spec.host (e.g. `${name}-${namespace}.myapps.mycompany.com`).
+|`*ROUTER_SUBDOMAIN*`|  | The template that should be used to generate the host name for a route without spec.host (e.g. `${name}-${namespace}.myapps.mycompany.com`).
 |`*ROUTER_SYSLOG_ADDRESS*` |  | Address to send log messages. Disabled if empty.
 |`*ROUTER_TCP_BALANCE_SCHEME*` | source | Load-balancing strategy for multiple endpoints for pass-through routes. Available options are `source`, `roundrobin`, or `leastconn`.
 |`*ROUTER_LOAD_BALANCE_ALGORITHM*` | leastconn | Load-balancing strategy routes with multiple endpoints. Available options are `source`, `roundrobin`, and `leastconn`.
@@ -238,8 +240,8 @@ $ oc set env dc/router HAPROXY_ROUTER_SYSLOG_ADDRESS=127.0.0.1 HAPROXY_ROUTER_LO
 |`*ROUTE_LABELS*` |  | A label selector to apply to the routes to watch, empty means all.
 |`*STATS_PASSWORD*` |  | The password needed to access router stats (if the router implementation supports it).
 |`*STATS_PORT*` |  | Port to expose statistics on (if the router implementation supports it).  If not set, stats are not exposed.
-|`*STATS_USERNAME*` |  | The username needed to access router stats (if the router implementation supports it).
-|`*TEMPLATE_FILE*` | `/var/lib/haproxy/conf/custom/haproxy-config-custom.template` | The path to the haproxy template file (in the image).
+|`*STATS_USERNAME*` |  | The user name needed to access router stats (if the router implementation supports it).
+|`*TEMPLATE_FILE*` | `/var/lib/haproxy/conf/custom/haproxy-config-custom.template` | The path to the HAproxy template file (in the image).
 |`*RELOAD_INTERVAL*` | 12s | The minimum frequency the router is allowed to reload to accept new changes.
 |===
 
@@ -427,7 +429,9 @@ address. All nodes of the cluster must learn this automatically.
 . Since the overlay network is multi-tenant aware, F5 must use a VxLAN ID that is
 representative of an `admin` domain, ensuring that all tenants are reachable by
 the F5. Ensure that F5 encapsulates all packets with a `vnid` of `0` (the
-default `vnid` for the `admin` name space in {product-title}).
+default `vnid` for the `admin` namespace in {product-title}) by putting an
+annotation on the manually created `hostsubnet` -
+`pod.network.openshift.io/fixed-vnid-host: 0`.
 
 A ghost `hostsubnet` is manually created as part of the setup, which fulfills
 the third and forth listed requirements. When the F5 controller pod is launched,
@@ -444,7 +448,13 @@ the cluster. It is hijacked by an external appliance.
 The first requirement is fulfilled by the F5 controller pod once it is launched.
 The second requirement is also fulfilled by the F5 controller pod, but it is an
 ongoing process. For each new node that is added to the cluster, the controller
-pod creates an entry in the VxLAN device’s VTEP FDB.
+pod creates an entry in the VxLAN device’s VTEP FDB. The controller pod needs
+access to the `nodes` resource in the cluster, which you can accomplish by
+giving the service account appropriate privileges. Use the following command:
+
+----
+$ oadm policy add-cluster-role-to-user system:sdn-reader system:serviceaccount:default:router
+----
 
 *Data Flow from the F5 Host*
 
@@ -1032,7 +1042,9 @@ wildcard policy as part of its configuration using the `wildcardPolicy` field.
 Any routers run with a policy allowing wildcard routes will expose the route
 appropriately based on the wildcard policy.
 
+ifdef::openshift-enterprise,openshift-origin[]
 xref:../../install_config/router/default_haproxy_router.adoc#using-wildcard-routes[Learn how to configure HAProxy routers to allow wildcard routes].
+endif::[]
 
 .A Route Specifying a Subdomain WildcardPolicy
 ====
@@ -1052,3 +1064,122 @@ spec:
     in the subdomain `example.com`. `*.example.com` is the subdomain for host
     name `wildcard.example.com` to reach the exposed service.
 ====
+
+[[route-status-field]]
+== Route Status
+
+The `route status` field is only set by routers. If changes are made to a route
+so that a router no longer serves a specific route, the status becomes stale.
+The routers do not clear the `route status` field. To remove the stale entries
+in the route status, use the
+link:https://github.com/openshift/origin/blob/master/images/router/clear-route-status.sh[clear-route-status
+script].
+
+
+[[architecture-core-concepts-routes-deny-allow]]
+== Denying or Allowing Certain Domains in Routes
+
+A router can be configured to deny or allow a specific subset of domains from
+the host names in a route using the `ROUTER_DENIED_DOMAINS` and
+`ROUTER_ALLOWED_DOMAINS` environment variables.
+
+[cols="2"]
+|===
+
+|`*ROUTER_DENIED_DOMAINS*` | Domains listed are not allowed in any indicated routes.
+|`*ROUTER_ALLOWED_DOMAINS*` | Only the domains listed are allowed in any indicated routes.
+
+|===
+
+The domains in the list of denied domains take precedence over the list of
+allowed domains. Meaning {product-title} first checks the deny list (if
+applicable), and if the host name is not in the list of denied domains, it then
+checks the list of allowed domains. However, the list of allowed domains is more
+restrictive, and ensures that the router only admits routes with hosts that
+belong to that list.
+
+For example, to deny the `[{asterisk}.]open.header.test`, `[{asterisk}.]openshift.org` and
+`[{asterisk}.]block.it` routes for the `myrouter` route:
+
+----
+$ oadm router myrouter ...
+$ oc set env dc/myrouter ROUTER_DENIED_DOMAINS="open.header.test, openshift.org, block.it"
+----
+
+This means that `myrouter` will admit the following based on the route's name:
+
+----
+$ oc expose service/<name> --hostname="foo.header.test" 
+$ oc expose service/<name> --hostname="www.allow.it"
+$ oc expose service/<name> --hostname="www.openshift.test"
+----
+
+However, `myrouter` will deny the following:
+
+----
+$ oc expose service/<name> --hostname="open.header.test"
+$ oc expose service/<name> --hostname="www.open.header.test"
+$ oc expose service/<name> --hostname="block.it"
+$ oc expose service/<name> --hostname="franco.baresi.block.it"
+$ oc expose service/<name> --hostname="openshift.org"
+$ oc expose service/<name> --hostname="api.openshift.org"
+----
+
+Alternatively, to block any routes where the host name is _not_ set to `[{asterisk}.]stickshift.org` or `[{asterisk}.]kates.net`:
+
+----
+$ oadm router myrouter ...
+$ oc set env dc/myrouter ROUTER_ALLOWED_DOMAINS="stickshift.org, kates.net"
+----
+
+This means that the `myrouter` router will admit:
+
+----
+$ oc expose service/<name> --hostname="stickshift.org"
+$ oc expose service/<name> --hostname="www.stickshift.org" 
+$ oc expose service/<name> --hostname="kates.net" 
+$ oc expose service/<name> --hostname="api.kates.net"
+$ oc expose service/<name> --hostname="erno.r.kube.kates.net"
+----
+
+However, `myrouter` will deny the following:
+
+----
+$ oc expose service/<name> --hostname="www.open.header.test"
+$ oc expose service/<name> --hostname="drive.ottomatic.org"
+$ oc expose service/<name> --hostname="www.wayless.com"
+$ oc expose service/<name> --hostname="www.deny.it"
+----
+
+To implement both scenarios, run:
+
+----
+$ oadm router adrouter ...
+$ oc env dc/adrouter ROUTER_ALLOWED_DOMAINS="openshift.org, kates.net" \
+    ROUTER_DENIED_DOMAINS="ops.openshift.org, metrics.kates.net"
+----
+
+This will allow any routes where the host name is set to `[{asterisk}.]openshift.org` or
+`[{asterisk}.]kates.net`, and not allow any routes where the host name is set to
+`[{asterisk}.]ops.openshift.org` or `[{asterisk}.]metrics.kates.net`.
+
+Therefore, the following will be denied:
+
+----
+$ oc expose service/<name> --hostname="www.open.header.test"
+$ oc expose service/<name> --hostname="ops.openshift.org"
+$ oc expose service/<name> --hostname="log.ops.openshift.org"
+$ oc expose service/<name> --hostname="www.block.it"
+$ oc expose service/<name> --hostname="metrics.kates.net"
+$ oc expose service/<name> --hostname="int.metrics.kates.net"
+----
+
+However, the following will be allowed:
+
+----
+$ oc expose service/<name> --hostname="openshift.org"
+$ oc expose service/<name> --hostname="api.openshift.org"
+$ oc expose service/<name> --hostname="m.api.openshift.org"
+$ oc expose service/<name> --hostname="kates.net"
+$ oc expose service/<name> --hostname="api.kates.net"
+----

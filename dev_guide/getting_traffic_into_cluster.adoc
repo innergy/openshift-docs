@@ -73,9 +73,8 @@ xref:../install_config/install/prerequisites.adoc#prereq-dns[wildcard DNS]
 endif::[]
 ifdef::openshift-dedicated,openshift-online,atomic-registry[]
 wildcard DNS 
-endif::[]
-
- entry, and then set up a router. Afterward, the users can self-service the edge
+endif::[] 
+entry, and then set up a router. Afterward, the users can self-service the edge
 router without having to contact the administrators. The router has controls to
 allow the administrator to specify whether the users can self-provision host
 names, or if they must fit a pattern the administrator defines. The other
@@ -176,7 +175,7 @@ INGRESS
 
 The external IP address is not managed by the underlying Kubernetes
 infrastructure and must be maintained and provided by a cluster administrator.
-While external IPs provide a solution for accessing services on the {product-tlte}
+While external IPs provide a solution for accessing services on the {product-title}
 cluster, there are several shortcomings:
 
 * The cluster administrator user must ensure the external IP is not in any range

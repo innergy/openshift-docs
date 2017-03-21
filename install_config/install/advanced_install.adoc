@@ -18,6 +18,8 @@ installation_ method for installing a {product-title} cluster. Familiarity with 
 assumed, however you can use this configuration as a reference to create your
 own implementation using the configuration management tool of your choosing.
 
+[IMPORTANT]
+====
 While RHEL Atomic Host is supported for running containerized {product-title}
 services, the advanced installation method utilizes Ansible, which is not
 available in RHEL Atomic Host, and must therefore be run from
@@ -29,6 +31,7 @@ a supported version of Fedora, CentOS, or RHEL.
 endif::[]
 The host initiating the installation does not need to be intended for inclusion
 in the {product-title} cluster, but it can be.
+====
 
 ifdef::openshift-enterprise[]
 Alternatively, you can use the xref:quick_install.adoc#install-config-install-quick-install[quick installation]
@@ -47,14 +50,14 @@ xref:../../install_config/install/stand_alone_registry.adoc#install-config-insta
 Before installing {product-title}, you must first see the xref:../../install_config/install/prerequisites.adoc#install-config-install-prerequisites[Prerequisites] topic to
 prepare your hosts, which includes verifying system and environment requirements
 per component type and properly installing and configuring Docker. It also
-includes installing Ansible version 1.8.4 or later, as the advanced installation
+includes installing Ansible version 2.2.0 or later, as the advanced installation
 method is based on Ansible playbooks and as such requires directly invoking
 Ansible.
 
 If you are interested in installing {product-title} using the containerized method
 (optional for RHEL but required for RHEL Atomic Host), see
-xref:../../install_config/install/rpm_vs_containerized.adoc#install-config-install-rpm-vs-containerized[RPM vs
-Containerized] to ensure that you understand the differences between these
+xref:../../install_config/install/rpm_vs_containerized.adoc#install-config-install-rpm-vs-containerized[Installing on
+Containerized Hosts] to ensure that you understand the differences between these
 methods, then return to this topic to continue.
 
 After following the instructions in the
@@ -123,13 +126,13 @@ installations, or for hosts on networks using a network address translation
 (NAT).
 
 |`*containerized*`
-|If set to *true*, containerized {product-title} services are run on target master and
+|If set to *true*, containerized {product-title} services are run on the target master and
 node hosts instead of installed using RPM packages. If set to *false* or unset,
 the default RPM method is used. RHEL Atomic Host requires the containerized
 method, and is automatically selected for you based on the detection of the
 *_/run/ostree-booted_* file. See
-xref:../../install_config/install/rpm_vs_containerized.adoc#install-config-install-rpm-vs-containerized[RPM vs
-Containerized] for more details.
+xref:../../install_config/install/rpm_vs_containerized.adoc#install-config-install-rpm-vs-containerized[Installing on
+Containerized Hosts] for more details.
 ifdef::openshift-enterprise[]
 Containerized installations are supported starting in {product-title} 3.1.1.
 endif::[]
@@ -215,8 +218,8 @@ and node hosts in the cluster instead of installed using RPM packages. If set to
 *false* or unset, the default RPM method is used. RHEL Atomic Host requires the
 containerized method, and is automatically selected for you based on the
 detection of the *_/run/ostree-booted_* file. See
-xref:../../install_config/install/rpm_vs_containerized.adoc#install-config-install-rpm-vs-containerized[RPM vs
-Containerized] for more details.
+xref:../../install_config/install/rpm_vs_containerized.adoc#install-config-install-rpm-vs-containerized[Installing on
+Containerized Hosts] for more details.
 ifdef::openshift-enterprise[]
 Containerized installations are supported starting in {product-title} 3.1.1.
 endif::[]
@@ -318,7 +321,7 @@ re-configured after deployment.
 
 |`*openshift_use_flannel*`
 |This variable enables *flannel* as an alternative networking layer instead of
-the default SDN. If enabling *flannel*, disable the default SDN with the 
+the default SDN. If enabling *flannel*, disable the default SDN with the
 *openshift_use_openshift_sdn* variable. For more information, see xref:../configuring_sdn.adoc#using-flannel[Using Flannel].
 
 |`*openshift_docker_additional_registries*`
@@ -651,14 +654,14 @@ following to enable cluster metrics when using the advanced install:
 ----
 [OSEv3:vars]
 
-openshift_hosted_metrics_deploy=true
+openshift_metrics_install_metrics=true
 ----
 ====
 
 === Metrics Storage
 
-The `*openshift_hosted_metrics_storage_kind*` variable must be set in order to
-use persistent storage. If `*openshift_hosted_metrics_storage_kind*` is not set,
+The `*openshift_metrics_cassandra_storage_type*` variable must be set in order to
+use persistent storage. If `*openshift_metrics_cassandra_storage_type*` is not set,
 then cluster metrics data is stored in an `EmptyDir` volume, which will
 be deleted when the Cassandra pod terminates.
 
@@ -715,7 +718,7 @@ volume provisioning for your cloud platform:
 ----
 [OSEv3:vars]
 
-#openshift_hosted_metrics_storage_kind=dynamic
+#openshift_metrics_cassandra_storage_type=dynamic
 ----
 ====
 
@@ -917,6 +920,18 @@ automatically as the load balancing solution. If no host is defined, it is
 assumed you have pre-configured a load balancing solution of your choice to
 balance the master API (port 8443) on all master hosts.
 |===
+
+For your pre-configured load balancing solution, you must have:
+
+* A pre-created load balancer VIP configured for SSL passthrough.
+* A domain name for VIP registered in DNS.
+** The domain name will become the value of both
+`openshift_master_cluster_public_hostname` and
+`openshift_master_cluster_hostname` in the {product-title} installer.
+
+See
+link:https://github.com/redhat-cop/openshift-playbooks/blob/master/playbooks/installation/load_balancing.adoc[External
+Load Balancer Integrations] for more information.
 
 [NOTE]
 ====

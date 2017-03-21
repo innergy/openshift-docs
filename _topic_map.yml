@@ -231,7 +231,7 @@ Topics:
         File: prerequisites
       - Name: Host Preparation
         File: host_preparation
-      - Name: Containerized Components
+      - Name: Installing on Containerized Hosts
         File: rpm_vs_containerized
       - Name: Quick Installation
         File: quick_install
@@ -268,6 +268,8 @@ Topics:
         File: default_haproxy_router
       - Name: Deploying a Customized HAProxy Router
         File: customized_haproxy_router
+      - Name: Configuring the HAProxy Router to Use the PROXY Protocol
+        File: proxy_protocol
       - Name: Using the F5 Router Plug-in
         File: f5_router
   - Name: Upgrading a Cluster
@@ -375,8 +377,10 @@ Topics:
         File: ceph_example
       - Name: Complete Example Using GlusterFS
         File: gluster_example
-      - Name: Dynamic Provisioning Example Using GlusterFS
+      - Name: Dynamic Provisioning Example Using Containerized GlusterFS
         File: gluster_dynamic_example
+      - Name: Dynamic Provisioning Example Using Dedicated GlusterFS
+        File: dedicated_gluster_dynamic_example
       - Name: Mounting Volumes To Privileged Pods
         File: privileged_pod_storage
       - Name: Backing Docker Registry with GlusterFS Storage
@@ -452,6 +456,8 @@ Topics:
     File: managing_projects
   - Name: Managing Pods
     File: managing_pods
+  - Name: Managing Networking
+    File: managing_networking
   - Name: Configuring Service Accounts
     File: service_accounts
   - Name: Managing Authorization Policies
@@ -518,9 +524,9 @@ Topics:
   - Name: Sysctls
     File: sysctls
     Distros: openshift-origin,openshift-enterprise
-#  - Name: Encrypting Hosts with IPsec
-#    File: ipsec
-#    Distros: openshift-origin,openshift-enterprise
+  - Name: Encrypting Hosts with IPsec
+    File: ipsec
+    Distros: openshift-origin,openshift-enterprise
   - Name: Building Dependency Trees
     File: building_dependency_trees
     Distros: openshift-origin,openshift-enterprise
@@ -672,6 +678,7 @@ Topics:
     File: compute_resources
   - Name: Getting Traffic Into The Cluster
     File: getting_traffic_into_cluster
+    Distros: openshift-enterprise,openshift-dedicated,openshift-origin
   - Name: Routes
     File: routes
   - Name: Integrating External Services
@@ -703,6 +710,9 @@ Topics:
     File: application_health
   - Name: Events
     File: events
+  - Name: Notifications
+    File: notifications
+    Distros: openshift-online
   - Name: Downward API
     File: downward_api
   - Name: Managing Environment Variables
@@ -711,6 +721,8 @@ Topics:
     File: jobs
   - Name: Cron Jobs
     File: cron_jobs
+  - Name: Create from URL
+    File: create_from_url
   - Name: Revision History
     File: revhistory_dev_guide
     Distros: openshift-enterprise,openshift-dedicated
